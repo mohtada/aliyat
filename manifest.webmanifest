@@ -1,0 +1,19 @@
+{
+  "name": "آليات المكتب الخاص",
+  "short_name": "الآليات",
+  "description": "إدارة عجلات المكتب الخاص: الحركة والصيانة وتبديل الدهن والتقارير",
+  "lang": "ar",
+  "dir": "rtl",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1f3a4f",
+  "theme_color": "#1f3a4f",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
