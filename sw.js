@@ -1,6 +1,6 @@
 // يحفظ واجهة التطبيق حتى يفتح بسرعة ويطلع رسالة واضحة إذا ماكو إنترنت.
 // بيانات النظام نفسها ما تنحفظ هنا، دائماً تنجاب من الإنترنت.
-const CACHE = 'aliyat-shell-v1';
+const CACHE = 'aliyat-shell-v2';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'favicon-32.png'];
 
 self.addEventListener('install', e => {

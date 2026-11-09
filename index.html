@@ -79,6 +79,20 @@
   document.querySelectorAll('[data-retry]').forEach(b => b.addEventListener('click', load));
   window.addEventListener('online', () => { if (!loaded) load(); });
 
+  // نسخة احتياطية من جلسة الدخول: النظام يحفظها هنا، ويرجعها إذا انمسحت ذاكرته، فما يطلب تسجيل دخول.
+  // ما نجاوب إلا النظام اللي داخل هذا التطبيق نفسه.
+  const TOKEN_KEY = 'aliyat_token';
+  const fromApp = e => { let w = e.source; for (let i = 0; i < 8 && w; i++) { if (w === frame.contentWindow) return true; if (w === w.parent) break; w = w.parent; } return false; };
+  window.addEventListener('message', e => {
+    const d = e.data;
+    if (!d || d.aliyat !== 1 || !fromApp(e) || !/^https:\/\/([a-z0-9-]+\.)*(googleusercontent\.com|google\.com)$/.test(e.origin)) return;
+    try {
+      if (d.type === 'set-token' && typeof d.token === 'string' && d.token.length < 200) localStorage.setItem(TOKEN_KEY, d.token);
+      else if (d.type === 'del-token') localStorage.removeItem(TOKEN_KEY);
+      else if (d.type === 'get-token') e.source.postMessage({ aliyat: 1, type: 'token', token: localStorage.getItem(TOKEN_KEY) }, e.origin);
+    } catch (x) {}
+  });
+
   load();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
