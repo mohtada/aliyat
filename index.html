@@ -20,9 +20,16 @@
   body { font-family:'IBM Plex Sans Arabic',Tahoma,'Segoe UI',sans-serif; color:var(--ink); }
   /* شريط الساعة فوق بلون رأس النظام، والمساحة تحت مؤشر الآيفون بلون الشريط السفلي */
   .safe-top { position:fixed; inset:0 0 auto 0; height:env(safe-area-inset-top); background:var(--top); }
-  #app { position:fixed; top:env(safe-area-inset-top); right:0; left:0; bottom:env(safe-area-inset-bottom); width:100%;
-         height:calc(100% - env(safe-area-inset-top) - env(safe-area-inset-bottom)); border:0; background:var(--bottom); }
-  #splash { position:fixed; inset:0; z-index:5; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+  /* النظام ياخذ الشاشة لآخرها، والشريط السفلي مالته يترك مسافة مؤشر الآيفون بنفسه (نبلغه بيها) */
+  #app { position:fixed; top:env(safe-area-inset-top); right:0; left:0; width:100%; height:calc(100% - env(safe-area-inset-top)); border:0; background:var(--bottom); }
+  #probe { position:fixed; visibility:hidden; pointer-events:none; height:0; padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); }
+  /* الآيفون (التطبيق من الشاشة الرئيسية): الصفحة تنحسب أقصر من الشاشة بمقدار شريط الساعة فيبقى فراغ تحت.
+     بهذي الحالة بس، السكربت يمدّ الصفحة لطول الشاشة الحقيقي وهذي القواعد تخلي العناصر تتبع الصفحة مو نافذة العرض القصيرة. */
+  html.ext, html.ext body { position:relative; }
+  html.ext .safe-top { position:absolute; }
+  html.ext #app { position:absolute; }
+  html.ext #splash { position:absolute; inset:0 0 auto 0; }
+  #splash { position:fixed; inset:0; z-index:5; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
             background:var(--top); color:#fff; text-align:center; padding:24px; transition:opacity .35s; }
   #splash.hide { opacity:0; pointer-events:none; }
   #splash img { width:96px; height:96px; border-radius:22px; box-shadow:0 8px 24px rgba(0,0,0,.25); }
@@ -39,6 +46,7 @@
 </head>
 <body>
 <div class="safe-top"></div>
+<div id="probe"></div>
 <div id="splash">
   <img src="icon-192.png" alt="">
   <h1>آليات المكتب الخاص</h1>
@@ -76,6 +84,32 @@
     loaded = true; clearTimeout(timer);
     setTimeout(() => splash.classList.add('hide'), 250);
   });
+  // الآيفون، التطبيق المثبّت على الشاشة الرئيسية: المتصفح يحسب ارتفاع الصفحة أقصر من الشاشة بمقدار شريط الساعة بالضبط،
+  // فالنظام يخلص قبل آخر الشاشة ويبقى فراغ جوه الشريط السفلي. إذا لقينا هذا الفرق بالضبط نمدّ الصفحة والنظام لآخر الشاشة.
+  // بأي حالة ثانية (أندرويد، حاسبة، متصفح عادي، أو آيفون يحسبها صح) ما نغيّر شي ويبقى التنسيق الأساسي.
+  const root = document.documentElement, probe = document.getElementById('probe'), safeTop = document.querySelector('.safe-top');
+  const insets = () => { const cs = getComputedStyle(probe); return { top: Math.round(parseFloat(cs.paddingTop) || 0), bottom: Math.round(parseFloat(cs.paddingBottom) || 0) }; };
+  let ext = false;
+  function fit() {
+    let on = false, S = 0, top = 0;
+    try {
+      const standalone = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+      const ih = window.innerHeight, iw = window.innerWidth;
+      top = insets().top;
+      S = ih >= iw ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+      const short = S - ih;
+      on = standalone && top > 0 && S > 0 && (Math.abs(short - top) <= 2 || (ext && Math.abs(short) <= 2));
+    } catch (e) { on = false; }
+    ext = on;
+    root.classList.toggle('ext', on);
+    const px = v => on ? v + 'px' : '';
+    root.style.height = px(S); document.body.style.height = px(S); splash.style.height = px(S);
+    safeTop.style.height = px(top); frame.style.top = px(top); frame.style.height = px(S - top);
+  }
+  fit();
+  ['resize', 'orientationchange', 'pageshow'].forEach(ev => window.addEventListener(ev, () => { fit(); setTimeout(fit, 350); }));
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) fit(); });
+
   document.querySelectorAll('[data-retry]').forEach(b => b.addEventListener('click', load));
   window.addEventListener('online', () => { if (!loaded) load(); });
 
@@ -90,6 +124,10 @@
       if (d.type === 'set-token' && typeof d.token === 'string' && d.token.length < 200) localStorage.setItem(TOKEN_KEY, d.token);
       else if (d.type === 'del-token') localStorage.removeItem(TOKEN_KEY);
       else if (d.type === 'get-token') e.source.postMessage({ aliyat: 1, type: 'token', token: localStorage.getItem(TOKEN_KEY) }, e.origin);
+      // معرف الجهاز (يبقى حتى بعد تسجيل الخروج): يخلي الخادم يميز جهاز صاحب الحساب عند حد محاولات الدخول
+      else if (d.type === 'set-dev' && typeof d.dev === 'string' && /^[0-9a-f]{20,64}$/.test(d.dev)) localStorage.setItem('aliyat_dev', d.dev);
+      else if (d.type === 'get-dev') e.source.postMessage({ aliyat: 1, type: 'dev', dev: localStorage.getItem('aliyat_dev') }, e.origin);
+      else if (d.type === 'get-inset') e.source.postMessage({ aliyat: 1, type: 'inset', bottom: insets().bottom }, e.origin);
     } catch (x) {}
   });
 
